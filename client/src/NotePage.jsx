@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import io from 'socket.io-client';
-import { ArrowLeft, Check, RefreshCw, Eye, Users, UserPlus, Link, X } from 'lucide-react';
+import { ArrowLeft, Check, RefreshCw, Eye, Users, UserPlus, Link, X, Lock } from 'lucide-react';
 import './NotePage.css';
 
 const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5001';
@@ -242,14 +242,22 @@ const NotePage = () => {
                         <ArrowLeft size={18} /> Back to Dashboard
                     </button>
                 </nav>
-                <div className="loading" style={{flexDirection: 'column', gap: '16px'}}>
-                    <h2>Access Denied</h2>
-                    <p>You don't have permission to view this document.</p>
-                    {!requestSent ? (
-                        <button className="btn-invite" onClick={handleRequestAccess}>Request Access</button>
-                    ) : (
-                        <p style={{color: 'green', fontWeight: '500'}}>Request sent successfully! Waiting for owner approval.</p>
-                    )}
+                <div className="access-denied-container">
+                    <div className="access-denied-card">
+                        <div className="access-icon-wrapper">
+                            <Lock size={32} />
+                        </div>
+                        <h2>Access Denied</h2>
+                        <p>You don't have permission to view this document. Request access from the owner to collaborate.</p>
+                        {!requestSent ? (
+                            <button className="btn-request-access" onClick={handleRequestAccess}>Request Access</button>
+                        ) : (
+                            <div className="request-success-msg">
+                                <Check size={16} style={{display: 'inline', verticalAlign: '-3px', marginRight: '4px'}} />
+                                Request sent successfully! Waiting for owner approval.
+                            </div>
+                        )}
+                    </div>
                 </div>
             </div>
         );
@@ -295,14 +303,14 @@ const NotePage = () => {
                         <div className="viewers-stack">
                             <Users size={16} className="users-icon" />
                             <div className="avatars">
-                                {onlineUsers.slice(0, 3).map((user, index) => (
+                                {onlineUsers.slice(0, 3).map((u, index) => (
                                     <div 
                                         key={index} 
                                         className="avatar-small" 
-                                        title={user?.name || 'Anonymous'}
+                                        data-tooltip={u?.name || 'Anonymous'}
                                         style={{ zIndex: 3 - index }}
                                     >
-                                        {user?.name?.charAt(0).toUpperCase() || 'U'}
+                                        {u?.name?.charAt(0).toUpperCase() || 'U'}
                                     </div>
                                 ))}
                                 {onlineUsers.length > 3 && (

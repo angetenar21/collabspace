@@ -216,6 +216,138 @@
     font-size: 15px;
 }
 
+/* Access Requests Section */
+.access-requests-section {
+    margin-bottom: 32px;
+    background: white;
+    border-radius: 12px;
+    border: 1px solid var(--border-color);
+    overflow: hidden;
+}
+
+.requests-header {
+    padding: 16px 24px;
+    background: #fff8f6;
+    border-bottom: 1px solid var(--border-color);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.requests-header h2 {
+    font-size: 14px;
+    font-weight: 600;
+    color: #e65100;
+    margin: 0;
+}
+
+.request-card {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 16px 24px;
+    border-bottom: 1px solid var(--border-color);
+    transition: background 0.2s ease;
+}
+
+.request-card:last-child {
+    border-bottom: none;
+}
+
+.request-card:hover {
+    background: #fafafa;
+}
+
+.request-info {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.request-avatar {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    background: #e0e0e0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 600;
+    color: #555;
+    font-size: 14px;
+}
+
+.request-details {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.request-email {
+    font-weight: 600;
+    font-size: 14px;
+    color: var(--text-primary);
+}
+
+.request-meta {
+    font-size: 13px;
+    color: var(--text-secondary);
+}
+
+.request-actions {
+    display: flex;
+    gap: 8px;
+}
+
+.btn-approve-viewer {
+    background: white;
+    color: var(--text-primary);
+    border: 1px solid var(--border-color);
+    padding: 8px 14px;
+    border-radius: 6px;
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.btn-approve-viewer:hover {
+    background: #f5f5f5;
+}
+
+.btn-approve-editor {
+    background: var(--accent-black);
+    color: white;
+    border: none;
+    padding: 8px 14px;
+    border-radius: 6px;
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.btn-approve-editor:hover {
+    background: var(--accent-black-hover);
+}
+
+.btn-deny {
+    background: transparent;
+    color: #e53935;
+    border: 1px solid transparent;
+    padding: 8px 14px;
+    border-radius: 6px;
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.btn-deny:hover {
+    background: #fff0ed;
+    border-color: #ffcdd2;
+}
+
 /* Notes Grid */
 .notes-grid {
     display: grid;

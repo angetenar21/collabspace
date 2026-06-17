@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { LayoutDashboard, Plus, FileText, LogOut, Search, Trash2, FilePlus2, Link } from 'lucide-react';
+import { LayoutDashboard, Plus, FileText, LogOut, Search, Trash2, FilePlus2, Link, Bell } from 'lucide-react';
 import './Dashboard.css';
 
 const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5001';
@@ -187,18 +187,25 @@ const Dashboard = () => {
 
                 <div className="main-content">
                     {notesWithRequests.length > 0 && (
-                        <div className="access-requests-section" style={{marginBottom: '32px'}}>
-                            <h2 style={{fontSize: '16px', fontWeight: '600', color: '#e65100', marginBottom: '16px'}}>Pending Access Requests</h2>
+                        <div className="access-requests-section">
+                            <div className="requests-header">
+                                <Bell size={16} color="#e65100" />
+                                <h2>Pending Access Requests</h2>
+                            </div>
                             {notesWithRequests.map(note => (
                                 note.accessRequests.map(email => (
-                                    <div key={`${note._id}-${email}`} style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#fff3e0', padding: '12px 16px', borderRadius: '8px', marginBottom: '8px'}}>
-                                        <div style={{fontSize: '14px', color: '#333'}}>
-                                            <strong>{email}</strong> requested access to <strong>{note.title || 'Untitled'}</strong>
+                                    <div key={`${note._id}-${email}`} className="request-card">
+                                        <div className="request-info">
+                                            <div className="request-avatar">{email.charAt(0).toUpperCase()}</div>
+                                            <div className="request-details">
+                                                <span className="request-email">{email}</span>
+                                                <span className="request-meta">requested access to <strong>{note.title || 'Untitled'}</strong></span>
+                                            </div>
                                         </div>
-                                        <div style={{display: 'flex', gap: '8px'}}>
-                                            <button onClick={() => resolveRequest(note._id, email, true, 'viewer')} style={{padding: '6px 12px', background: '#4caf50', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '13px', fontWeight: '500'}}>Approve (Viewer)</button>
-                                            <button onClick={() => resolveRequest(note._id, email, true, 'editor')} style={{padding: '6px 12px', background: 'var(--accent-black)', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '13px', fontWeight: '500'}}>Approve (Editor)</button>
-                                            <button onClick={() => resolveRequest(note._id, email, false)} style={{padding: '6px 12px', background: 'transparent', color: '#e53935', border: '1px solid #e53935', borderRadius: '4px', cursor: 'pointer', fontSize: '13px', fontWeight: '500'}}>Deny</button>
+                                        <div className="request-actions">
+                                            <button className="btn-approve-viewer" onClick={() => resolveRequest(note._id, email, true, 'viewer')}>Approve as Viewer</button>
+                                            <button className="btn-approve-editor" onClick={() => resolveRequest(note._id, email, true, 'editor')}>Approve as Editor</button>
+                                            <button className="btn-deny" onClick={() => resolveRequest(note._id, email, false)}>Deny</button>
                                         </div>
                                     </div>
                                 ))
