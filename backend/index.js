@@ -21,7 +21,7 @@ const allowedOrigins = (process.env.ALLOWED_ORIGINS || 'http://localhost:5173,ht
 const io = new Server(httpServer, {
     cors: {
         origin: allowedOrigins,
-        methods: ["GET", "POST"],
+        methods: ["GET", "POST", "DELETE"],
         credentials: true
     }
 });
@@ -77,6 +77,22 @@ io.on('connection', (socket) => {
 
     socket.on('note-update', async ({ noteId, title, content, userId }) => {
         try {
+            // Ensure security: verify DB permissions before broadcast
+            const note = await db.collection('notes').findOne({ _id: new ObjectId(noteId) });
+            if (!note) return;
+            
+            const user = await db.collection('users').findOne({ _id: new ObjectId(userId) });
+            if (!user) return;
+            
+            const isCreator = note.creatorId === userId;
+            const sharedUser = note.sharedWith?.find(s => (typeof s === 'object' ? s.email === user.email : s === user.email));
+            const isEditor = sharedUser && sharedUser.role === 'editor';
+            
+            if (!isCreator && !isEditor) {
+                console.log(`Blocked unauthorized edit from ${userId} on note ${noteId}`);
+                return;
+            }
+
             await db.collection('notes').updateOne(
                 { _id: new ObjectId(noteId) },
                 { 
@@ -161,7 +177,7 @@ app.get('/notes', verifyToken, async (req, res) =>{
             .find({ 
                 $or: [
                     { creatorId: req.user.id },
-                    { sharedWith: req.user.email }
+                    { "sharedWith.email": req.user.email }
                 ]
             })
             .sort({ createdAt: -1 })
@@ -183,7 +199,9 @@ app.get('/notes/:id', verifyToken, async (req, res) => {
         }
         
         // Ensure user has access
-        const hasAccess = note.creatorId === req.user.id || (note.sharedWith && note.sharedWith.includes(req.user.email));
+        const isShared = note.sharedWith && note.sharedWith.some(s => (typeof s === 'object' ? s.email === req.user.email : s === req.user.email));
+        const hasAccess = note.creatorId === req.user.id || isShared;
+        
         if (!hasAccess) {
              return res.status(403).json({ message: 'Not authorized to view this note' });
         }
@@ -203,7 +221,7 @@ app.post('/notes', verifyToken, async (req, res) => {
             content: content || '',
             creatorId: req.user.id,
             creatorName: req.user.name,
-            sharedWith: [],
+            sharedWith: [], // Array of objects {email, role}
             createdAt: new Date(),
             updatedAt: new Date()
         };
@@ -218,34 +236,63 @@ app.post('/notes', verifyToken, async (req, res) => {
 
 app.post('/notes/:id/share', verifyToken, async (req, res) => {
     try {
-        const { email } = req.body;
-        if (!email) {
-            return res.status(400).json({ message: 'Email is required' });
+        const { email, role } = req.body;
+        if (!email || !role) {
+            return res.status(400).json({ message: 'Email and role are required' });
         }
         
-        const note = await db.collection('notes').findOne({ 
-            _id: new ObjectId(req.params.id) 
-        });
+        const note = await db.collection('notes').findOne({ _id: new ObjectId(req.params.id) });
         
         if (!note) {
             return res.status(404).json({ message: 'Note not found' });
         }
         
         if (note.creatorId !== req.user.id) {
-            return res.status(403).json({ message: 'Only the creator can share this note' });
+            return res.status(403).json({ message: 'Only the creator can manage sharing' });
         }
         
-        // Avoid adding the creator's own email or duplicates
-        if (email === req.user.email || (note.sharedWith && note.sharedWith.includes(email))) {
-            return res.status(400).json({ message: 'User is already added' });
+        if (email === req.user.email) {
+            return res.status(400).json({ message: 'Cannot change permissions of the creator' });
         }
+        
+        const existingIndex = note.sharedWith ? note.sharedWith.findIndex(s => (typeof s === 'object' ? s.email === email : s === email)) : -1;
+        
+        if (existingIndex > -1) {
+            const newSharedWith = [...note.sharedWith];
+            newSharedWith[existingIndex] = { email, role };
+            await db.collection('notes').updateOne(
+                { _id: new ObjectId(req.params.id) },
+                { $set: { sharedWith: newSharedWith } }
+            );
+        } else {
+            await db.collection('notes').updateOne(
+                { _id: new ObjectId(req.params.id) },
+                { $addToSet: { sharedWith: { email, role } } }
+            );
+        }
+        
+        res.status(200).json({ message: `Successfully updated permissions for ${email}` });
+    } catch (error) {
+        console.log(error);
+        res.status(500).json({ message: 'Server error' });
+    }
+});
+
+app.delete('/notes/:id/share/:email', verifyToken, async (req, res) => {
+    try {
+        const note = await db.collection('notes').findOne({ _id: new ObjectId(req.params.id) });
+        
+        if (!note) return res.status(404).json({ message: 'Note not found' });
+        if (note.creatorId !== req.user.id) return res.status(403).json({ message: 'Only creator can remove access' });
+        
+        const emailToRemove = req.params.email;
+        const newSharedWith = note.sharedWith.filter(s => (typeof s === 'object' ? s.email !== emailToRemove : s !== emailToRemove));
         
         await db.collection('notes').updateOne(
             { _id: new ObjectId(req.params.id) },
-            { $addToSet: { sharedWith: email } }
+            { $set: { sharedWith: newSharedWith } }
         );
-        
-        res.status(200).json({ message: `Successfully shared with ${email}` });
+        res.status(200).json({ message: 'Access revoked' });
     } catch (error) {
         console.log(error);
         res.status(500).json({ message: 'Server error' });
@@ -254,9 +301,7 @@ app.post('/notes/:id/share', verifyToken, async (req, res) => {
 
 app.delete('/notes/:id', verifyToken, async (req, res) => {
     try {
-        const note = await db.collection('notes').findOne({ 
-            _id: new ObjectId(req.params.id) 
-        });
+        const note = await db.collection('notes').findOne({ _id: new ObjectId(req.params.id) });
         
         if (!note) {
             return res.status(404).json({ message: 'Note not found' });

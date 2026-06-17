@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import io from 'socket.io-client';
-import { ArrowLeft, Check, RefreshCw, Eye, Users, UserPlus } from 'lucide-react';
+import { ArrowLeft, Check, RefreshCw, Eye, Users, UserPlus, Link, X } from 'lucide-react';
 import './NotePage.css';
 
 const NotePage = () => {
@@ -14,6 +14,10 @@ const NotePage = () => {
     const [canEdit, setCanEdit] = useState(false);
     const [loading, setLoading] = useState(true);
     const [isSaving, setIsSaving] = useState(false);
+    const [showShareModal, setShowShareModal] = useState(false);
+    const [shareEmail, setShareEmail] = useState('');
+    const [shareRole, setShareRole] = useState('viewer');
+    
     const socketRef = useRef(null);
     const saveTimeoutRef = useRef(null);
     const currentUserRef = useRef(null);
@@ -34,9 +38,10 @@ const NotePage = () => {
             id: user.id, 
             name: user.name 
         });
-
-        socketRef.current.emit('join-note', id);
-
+        socketRef.current.emit('join-note', {
+            noteId: id,
+            user: { id: user.id, name: user.name }
+        });
         socketRef.current.on('online-users', (users) => {
             setOnlineUsers(users);
             setViewers(users.length);
@@ -60,14 +65,13 @@ const NotePage = () => {
                 });
                 const data = await response.json();
                 if (data.note) {
-                    setNote({
-                        title: data.note.title,
-                        content: data.note.content
-                    });
+                    setNote(data.note); // Set entire note to get sharedWith and creatorName easily
                     const userIsCreator = data.note.creatorId === userId;
-                    const userIsShared = data.note.sharedWith && data.note.sharedWith.includes(user.email);
+                    const sharedUser = data.note.sharedWith && data.note.sharedWith.find(s => (typeof s === 'object' ? s.email === user.email : s === user.email));
+                    const userIsEditor = sharedUser ? (typeof sharedUser === 'object' ? sharedUser.role === 'editor' : true) : false;
+                    
                     setIsCreator(userIsCreator);
-                    setCanEdit(userIsCreator || userIsShared);
+                    setCanEdit(userIsCreator || userIsEditor);
                 }
             } catch (error) {
                 console.error('Error fetching note:', error);
@@ -136,23 +140,74 @@ const NotePage = () => {
         navigate('/');
     };
 
-    const handleShare = async () => {
-        const email = prompt("Enter the exact email address to share this document with:");
-        if (!email) return;
+    const handleShareClick = () => {
+        setShowShareModal(true);
+    };
+
+    const copyLink = () => {
+        navigator.clipboard.writeText(window.location.href);
+        alert('Link copied to clipboard!');
+    };
+
+    const handleInvite = async () => {
+        if (!shareEmail) return;
         try {
             const token = localStorage.getItem('token');
             const res = await fetch(`http://localhost:5001/notes/${id}/share`, {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${token}`
-                },
-                body: JSON.stringify({ email: email.trim() })
+                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+                body: JSON.stringify({ email: shareEmail.trim(), role: shareRole })
             });
             const data = await res.json();
-            alert(data.message);
+            if (res.ok) {
+                setShareEmail('');
+                setNote(prev => {
+                    const newShared = [...(prev.sharedWith || [])];
+                    const idx = newShared.findIndex(s => (typeof s === 'object' ? s.email === shareEmail.trim() : s === shareEmail.trim()));
+                    if (idx > -1) newShared[idx] = { email: shareEmail.trim(), role: shareRole };
+                    else newShared.push({ email: shareEmail.trim(), role: shareRole });
+                    return { ...prev, sharedWith: newShared };
+                });
+            } else {
+                alert(data.message);
+            }
         } catch(err) {
-            alert('Failed to share document.');
+            alert('Failed to invite.');
+        }
+    };
+
+    const updateCollaboratorRole = async (emailToUpdate, newRole) => {
+        try {
+            const token = localStorage.getItem('token');
+            await fetch(`http://localhost:5001/notes/${id}/share`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+                body: JSON.stringify({ email: emailToUpdate, role: newRole })
+            });
+            setNote(prev => {
+                const newShared = [...(prev.sharedWith || [])];
+                const idx = newShared.findIndex(s => (typeof s === 'object' ? s.email === emailToUpdate : s === emailToUpdate));
+                if (idx > -1) newShared[idx] = { email: emailToUpdate, role: newRole };
+                return { ...prev, sharedWith: newShared };
+            });
+        } catch (error) {
+            console.error('Failed to update role', error);
+        }
+    };
+
+    const removeCollaborator = async (emailToRemove) => {
+        try {
+            const token = localStorage.getItem('token');
+            await fetch(`http://localhost:5001/notes/${id}/share/${emailToRemove}`, {
+                method: 'DELETE',
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            setNote(prev => {
+                const newShared = prev.sharedWith.filter(s => (typeof s === 'object' ? s.email !== emailToRemove : s !== emailToRemove));
+                return { ...prev, sharedWith: newShared };
+            });
+        } catch (error) {
+            console.error('Failed to remove collaborator', error);
         }
     };
 
@@ -196,7 +251,7 @@ const NotePage = () => {
 
                 <div className="nav-right">
                     {isCreator && (
-                        <button className="btn-share" onClick={handleShare}>
+                        <button className="btn-share" onClick={handleShareClick}>
                             <UserPlus size={16} /> Share
                         </button>
                     )}
@@ -208,10 +263,10 @@ const NotePage = () => {
                                     <div 
                                         key={index} 
                                         className="avatar-small" 
-                                        title={user.name || 'Anonymous'}
+                                        title={user?.name || 'Anonymous'}
                                         style={{ zIndex: 3 - index }}
                                     >
-                                        {user.name?.charAt(0).toUpperCase() || 'U'}
+                                        {user?.name?.charAt(0).toUpperCase() || 'U'}
                                     </div>
                                 ))}
                                 {onlineUsers.length > 3 && (
@@ -245,6 +300,87 @@ const NotePage = () => {
                     />
                 </div>
             </main>
+
+            {showShareModal && (
+                <div className="modal-overlay" onClick={() => setShowShareModal(false)}>
+                    <div className="modal-content" onClick={e => e.stopPropagation()}>
+                        <div className="modal-header">
+                            <h2>Share "{note.title || 'Untitled Document'}"</h2>
+                            <button className="btn-close-modal" onClick={() => setShowShareModal(false)}>
+                                <X size={20} />
+                            </button>
+                        </div>
+                        
+                        <div className="share-input-group">
+                            <input 
+                                type="email" 
+                                placeholder="Add people by email..." 
+                                value={shareEmail} 
+                                onChange={e => setShareEmail(e.target.value)}
+                                className="share-email-input"
+                            />
+                            <select 
+                                value={shareRole} 
+                                onChange={e => setShareRole(e.target.value)}
+                                className="share-role-select"
+                            >
+                                <option value="viewer">Viewer</option>
+                                <option value="editor">Editor</option>
+                            </select>
+                            <button className="btn-invite" onClick={handleInvite}>Invite</button>
+                        </div>
+                        
+                        <div className="collaborators-list">
+                            <h4>People with access</h4>
+                            
+                            <div className="collaborator-item">
+                                <div className="collab-info">
+                                    <div className="collab-avatar">{note.creatorName?.charAt(0).toUpperCase() || 'U'}</div>
+                                    <div className="collab-details">
+                                        <span className="collab-name">{note.creatorName} (You)</span>
+                                        <span className="collab-email">Owner</span>
+                                    </div>
+                                </div>
+                                <span className="collab-role-text">Owner</span>
+                            </div>
+                            
+                            {note.sharedWith && note.sharedWith.map((userObj, idx) => {
+                                const email = typeof userObj === 'object' ? userObj.email : userObj;
+                                const role = typeof userObj === 'object' ? userObj.role : 'editor';
+                                
+                                return (
+                                    <div className="collaborator-item" key={idx}>
+                                        <div className="collab-info">
+                                            <div className="collab-avatar">{email.charAt(0).toUpperCase()}</div>
+                                            <div className="collab-details">
+                                                <span className="collab-email">{email}</span>
+                                            </div>
+                                        </div>
+                                        <div className="collab-actions">
+                                            <select 
+                                                value={role} 
+                                                onChange={(e) => updateCollaboratorRole(email, e.target.value)}
+                                                className="collab-role-dropdown"
+                                            >
+                                                <option value="viewer">Viewer</option>
+                                                <option value="editor">Editor</option>
+                                            </select>
+                                            <button className="btn-remove-access" onClick={() => removeCollaborator(email)}>Remove</button>
+                                        </div>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                        
+                        <div className="modal-footer">
+                            <button className="btn-copy-link" onClick={copyLink}>
+                                <Link size={14} /> Copy link
+                            </button>
+                            <button className="btn-done" onClick={() => setShowShareModal(false)}>Done</button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };
