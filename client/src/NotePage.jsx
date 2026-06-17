@@ -17,6 +17,8 @@ const NotePage = () => {
     const [showShareModal, setShowShareModal] = useState(false);
     const [shareEmail, setShareEmail] = useState('');
     const [shareRole, setShareRole] = useState('viewer');
+    const [accessDenied, setAccessDenied] = useState(false);
+    const [requestSent, setRequestSent] = useState(false);
     
     const socketRef = useRef(null);
     const saveTimeoutRef = useRef(null);
@@ -28,7 +30,7 @@ const NotePage = () => {
         currentUserRef.current = user;
 
         if (!token) {
-            navigate('/login');
+            navigate(`/login?redirect=/note/${id}`);
             return;
         }
 
@@ -63,8 +65,7 @@ const NotePage = () => {
                         'Authorization': `Bearer ${token}`
                     }
                 });
-                const data = await response.json();
-                if (data.note) {
+                if (response.ok && data.note) {
                     setNote(data.note); // Set entire note to get sharedWith and creatorName easily
                     const userIsCreator = data.note.creatorId === userId;
                     const sharedUser = data.note.sharedWith && data.note.sharedWith.find(s => (typeof s === 'object' ? s.email === user.email : s === user.email));
@@ -72,6 +73,8 @@ const NotePage = () => {
                     
                     setIsCreator(userIsCreator);
                     setCanEdit(userIsCreator || userIsEditor);
+                } else if (response.status === 403 || response.status === 404) {
+                    setAccessDenied(true);
                 }
             } catch (error) {
                 console.error('Error fetching note:', error);
@@ -211,10 +214,42 @@ const NotePage = () => {
         }
     };
 
-    if (loading) {
+    const handleRequestAccess = async () => {
+        try {
+            const token = localStorage.getItem('token');
+            const res = await fetch(`http://localhost:5001/notes/${id}/request-access`, {
+                method: 'POST',
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            if (res.ok) setRequestSent(true);
+            else {
+                const data = await res.json();
+                alert(data.message || 'Failed to send request');
+            }
+        } catch (err) {
+            console.error(err);
+        }
+    };
+
+    if (loading) return <div className="loading">Loading Note...</div>;
+    
+    if (accessDenied) {
         return (
             <div className="editor-layout">
-                <div className="loading">Loading document...</div>
+                <nav className="editor-nav">
+                    <button className="btn-back-nav" onClick={() => navigate('/')}>
+                        <ArrowLeft size={18} /> Back to Dashboard
+                    </button>
+                </nav>
+                <div className="loading" style={{flexDirection: 'column', gap: '16px'}}>
+                    <h2>Access Denied</h2>
+                    <p>You don't have permission to view this document.</p>
+                    {!requestSent ? (
+                        <button className="btn-invite" onClick={handleRequestAccess}>Request Access</button>
+                    ) : (
+                        <p style={{color: 'green', fontWeight: '500'}}>Request sent successfully! Waiting for owner approval.</p>
+                    )}
+                </div>
             </div>
         );
     }

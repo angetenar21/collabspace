@@ -18,7 +18,9 @@ const LoginPage = () => {
       localStorage.setItem('user', JSON.stringify(res.data.user));
       console.log(res.data);
       alert(res.data.message);
-      window.location.href = '/';
+      const urlParams = new URLSearchParams(window.location.search);
+      const redirectUrl = urlParams.get('redirect') || '/';
+      window.location.href = redirectUrl;
     } catch (error) {
       alert('login failed');
       console.log('error', error);

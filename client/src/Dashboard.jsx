@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { LayoutDashboard, Plus, FileText, LogOut, Search, Trash2, FilePlus2 } from 'lucide-react';
+import { LayoutDashboard, Plus, FileText, LogOut, Search, Trash2, FilePlus2, Link } from 'lucide-react';
 import './Dashboard.css';
 
 const Dashboard = () => {
@@ -85,6 +85,41 @@ const Dashboard = () => {
         navigate('/login');
     };
 
+    const joinNote = () => {
+        const url = prompt('Enter the copied link to the note space:');
+        if (!url) return;
+        
+        let id;
+        try {
+            if (url.includes('/note/')) {
+                id = url.split('/note/')[1];
+            } else {
+                id = url; // fallback if they just paste the ID
+            }
+            if (id) navigate(`/note/${id}`);
+            else alert('Invalid link format');
+        } catch (err) {
+            alert('Invalid link format');
+        }
+    };
+
+    const resolveRequest = async (noteId, email, approved, role = 'viewer') => {
+        try {
+            const token = localStorage.getItem('token');
+            await fetch(`http://localhost:5001/notes/${noteId}/resolve-access`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+                body: JSON.stringify({ email, approved, role })
+            });
+            fetchNotes(token); // refresh notes to clear the request
+        } catch (error) {
+            console.error('Error resolving request:', error);
+        }
+    };
+
+    const currentUser = JSON.parse(localStorage.getItem('user') || '{}');
+    const notesWithRequests = notes.filter(n => n.creatorId === currentUser.id && n.accessRequests && n.accessRequests.length > 0);
+
     const formatDate = (date) => {
         return new Date(date).toLocaleDateString('en-US', {
             month: 'short',
@@ -112,9 +147,13 @@ const Dashboard = () => {
                     <span className="brand-text">CollabSpace</span>
                 </div>
                 
-                <button className="sidebar-new-btn" onClick={createNewNote}>
+                <button className="sidebar-new-btn" onClick={createNewNote} style={{marginBottom: '12px'}}>
                     <Plus size={18} />
                     New Note
+                </button>
+                <button className="sidebar-new-btn" onClick={joinNote} style={{backgroundColor: 'transparent', color: 'var(--text-secondary)', border: '1px solid var(--border-color)'}}>
+                    <Link size={18} />
+                    Join via Link
                 </button>
 
                 <nav className="sidebar-nav">
@@ -145,6 +184,26 @@ const Dashboard = () => {
                 </header>
 
                 <div className="main-content">
+                    {notesWithRequests.length > 0 && (
+                        <div className="access-requests-section" style={{marginBottom: '32px'}}>
+                            <h2 style={{fontSize: '16px', fontWeight: '600', color: '#e65100', marginBottom: '16px'}}>Pending Access Requests</h2>
+                            {notesWithRequests.map(note => (
+                                note.accessRequests.map(email => (
+                                    <div key={`${note._id}-${email}`} style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#fff3e0', padding: '12px 16px', borderRadius: '8px', marginBottom: '8px'}}>
+                                        <div style={{fontSize: '14px', color: '#333'}}>
+                                            <strong>{email}</strong> requested access to <strong>{note.title || 'Untitled'}</strong>
+                                        </div>
+                                        <div style={{display: 'flex', gap: '8px'}}>
+                                            <button onClick={() => resolveRequest(note._id, email, true, 'viewer')} style={{padding: '6px 12px', background: '#4caf50', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '13px', fontWeight: '500'}}>Approve (Viewer)</button>
+                                            <button onClick={() => resolveRequest(note._id, email, true, 'editor')} style={{padding: '6px 12px', background: 'var(--accent-black)', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '13px', fontWeight: '500'}}>Approve (Editor)</button>
+                                            <button onClick={() => resolveRequest(note._id, email, false)} style={{padding: '6px 12px', background: 'transparent', color: '#e53935', border: '1px solid #e53935', borderRadius: '4px', cursor: 'pointer', fontSize: '13px', fontWeight: '500'}}>Deny</button>
+                                        </div>
+                                    </div>
+                                ))
+                            ))}
+                        </div>
+                    )}
+
                     <h1 className="page-title">Recent Notes</h1>
                     
                     <div className="notes-grid">

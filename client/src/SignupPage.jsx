@@ -24,7 +24,9 @@ const SignupPage = () => {
       );
       console.log(res.data);
       alert(res.data.message);
-      window.location.href = '/login';
+      const urlParams = new URLSearchParams(window.location.search);
+      const redirectUrl = urlParams.get('redirect');
+      window.location.href = redirectUrl ? `/login?redirect=${encodeURIComponent(redirectUrl)}` : '/login';
     } catch (error) {
       console.log('error', error);
       alert("signup failed");

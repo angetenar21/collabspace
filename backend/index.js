@@ -222,6 +222,7 @@ app.post('/notes', verifyToken, async (req, res) => {
             creatorId: req.user.id,
             creatorName: req.user.name,
             sharedWith: [], // Array of objects {email, role}
+            accessRequests: [], // Array of emails requesting access
             createdAt: new Date(),
             updatedAt: new Date()
         };
@@ -272,6 +273,55 @@ app.post('/notes/:id/share', verifyToken, async (req, res) => {
         }
         
         res.status(200).json({ message: `Successfully updated permissions for ${email}` });
+    } catch (error) {
+        console.log(error);
+        res.status(500).json({ message: 'Server error' });
+    }
+});
+
+app.post('/notes/:id/request-access', verifyToken, async (req, res) => {
+    try {
+        const note = await db.collection('notes').findOne({ _id: new ObjectId(req.params.id) });
+        if (!note) return res.status(404).json({ message: 'Note not found' });
+        
+        if (note.accessRequests && note.accessRequests.includes(req.user.email)) {
+            return res.status(400).json({ message: 'Request already pending' });
+        }
+        
+        await db.collection('notes').updateOne(
+            { _id: new ObjectId(req.params.id) },
+            { $addToSet: { accessRequests: req.user.email } }
+        );
+        res.status(200).json({ message: 'Access request sent' });
+    } catch (error) {
+        console.log(error);
+        res.status(500).json({ message: 'Server error' });
+    }
+});
+
+app.post('/notes/:id/resolve-access', verifyToken, async (req, res) => {
+    try {
+        const { email, approved, role } = req.body;
+        const note = await db.collection('notes').findOne({ _id: new ObjectId(req.params.id) });
+        
+        if (!note) return res.status(404).json({ message: 'Note not found' });
+        if (note.creatorId !== req.user.id) return res.status(403).json({ message: 'Only creator can resolve requests' });
+        
+        if (approved) {
+            await db.collection('notes').updateOne(
+                { _id: new ObjectId(req.params.id) },
+                { 
+                    $pull: { accessRequests: email },
+                    $addToSet: { sharedWith: { email, role: role || 'viewer' } }
+                }
+            );
+        } else {
+            await db.collection('notes').updateOne(
+                { _id: new ObjectId(req.params.id) },
+                { $pull: { accessRequests: email } }
+            );
+        }
+        res.status(200).json({ message: approved ? 'Request approved' : 'Request denied' });
     } catch (error) {
         console.log(error);
         res.status(500).json({ message: 'Server error' });
