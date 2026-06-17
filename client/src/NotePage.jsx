@@ -9,8 +9,7 @@ const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5001';
 const NotePage = () => {
     const { id } = useParams();
     const navigate = useNavigate();
-    const [note, setNote] = useState({ title: '', content: '' });
-    const [viewers, setViewers] = useState(0);
+    const [note, setNote] = useState({ title: '', content: '', sharedWith: [] });
     const [onlineUsers, setOnlineUsers] = useState([]);
     const [isCreator, setIsCreator] = useState(false);
     const [canEdit, setCanEdit] = useState(false);
