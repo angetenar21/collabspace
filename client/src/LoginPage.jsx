@@ -2,6 +2,8 @@ import React, { useState } from 'react'
 import styles from './Login.module.css';
 import axios from 'axios';
 
+const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5001';
+
 const LoginPage = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword]  = useState('');
@@ -13,7 +15,7 @@ const LoginPage = () => {
         return ;
       }
 
-      const res = await axios.post('http://localhost:5001/auth/login', {email, password});
+      const res = await axios.post(`${API_URL}/auth/login`, {email, password});
       localStorage.setItem('token', res.data.token);
       localStorage.setItem('user', JSON.stringify(res.data.user));
       console.log(res.data);

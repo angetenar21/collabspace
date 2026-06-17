@@ -3,6 +3,8 @@ import { useNavigate } from 'react-router-dom';
 import { LayoutDashboard, Plus, FileText, LogOut, Search, Trash2, FilePlus2, Link } from 'lucide-react';
 import './Dashboard.css';
 
+const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5001';
+
 const Dashboard = () => {
     const [notes, setNotes] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -24,7 +26,7 @@ const Dashboard = () => {
 
     const fetchNotes = async (token) => {
         try {
-            const response = await fetch('http://localhost:5001/notes', {
+            const response = await fetch(`${API_URL}/notes`, {
                 headers: {
                     'Authorization': `Bearer ${token}`
                 }
@@ -41,7 +43,7 @@ const Dashboard = () => {
     const createNewNote = async () => {
         const token = localStorage.getItem('token');
         try {
-            const response = await fetch('http://localhost:5001/notes', {
+            const response = await fetch(`${API_URL}/notes`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -67,7 +69,7 @@ const Dashboard = () => {
         
         const token = localStorage.getItem('token');
         try {
-            await fetch(`http://localhost:5001/notes/${noteId}`, {
+            await fetch(`${API_URL}/notes/${noteId}`, {
                 method: 'DELETE',
                 headers: {
                     'Authorization': `Bearer ${token}`
@@ -106,7 +108,7 @@ const Dashboard = () => {
     const resolveRequest = async (noteId, email, approved, role = 'viewer') => {
         try {
             const token = localStorage.getItem('token');
-            await fetch(`http://localhost:5001/notes/${noteId}/resolve-access`, {
+            await fetch(`${API_URL}/notes/${noteId}/resolve-access`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
                 body: JSON.stringify({ email, approved, role })

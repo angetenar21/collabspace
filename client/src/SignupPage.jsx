@@ -2,6 +2,8 @@ import React, { useState } from 'react'
 import styles from './Signup.module.css';
 import axios from 'axios';
 
+const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5001';
+
 const SignupPage = () => {
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
@@ -17,7 +19,7 @@ const SignupPage = () => {
       if(password !== confirmPassword){
         alert("Password did not match")
       }
-      const res = await axios.post('http://localhost:5001/auth/signup', {name, email, password},
+      const res = await axios.post(`${API_URL}/auth/signup`, {name, email, password},
         {
           headers:{"Content-Type": 'application/json'}
         }

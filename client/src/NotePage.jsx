@@ -4,6 +4,8 @@ import io from 'socket.io-client';
 import { ArrowLeft, Check, RefreshCw, Eye, Users, UserPlus, Link, X } from 'lucide-react';
 import './NotePage.css';
 
+const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5001';
+
 const NotePage = () => {
     const { id } = useParams();
     const navigate = useNavigate();
@@ -34,7 +36,7 @@ const NotePage = () => {
             return;
         }
 
-        socketRef.current = io('http://localhost:5001');
+        socketRef.current = io(API_URL);
 
         socketRef.current.emit('user-online', { 
             id: user.id, 
@@ -60,11 +62,12 @@ const NotePage = () => {
 
         const fetchNote = async (token, userId) => {
             try {
-                const response = await fetch(`http://localhost:5001/notes/${id}`, {
+                const response = await fetch(`${API_URL}/notes/${id}`, {
                     headers: {
                         'Authorization': `Bearer ${token}`
                     }
                 });
+                const data = await response.json();
                 if (response.ok && data.note) {
                     setNote(data.note); // Set entire note to get sharedWith and creatorName easily
                     const userIsCreator = data.note.creatorId === userId;
@@ -156,7 +159,7 @@ const NotePage = () => {
         if (!shareEmail) return;
         try {
             const token = localStorage.getItem('token');
-            const res = await fetch(`http://localhost:5001/notes/${id}/share`, {
+            const res = await fetch(`${API_URL}/notes/${id}/share`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
                 body: JSON.stringify({ email: shareEmail.trim(), role: shareRole })
@@ -182,7 +185,7 @@ const NotePage = () => {
     const updateCollaboratorRole = async (emailToUpdate, newRole) => {
         try {
             const token = localStorage.getItem('token');
-            await fetch(`http://localhost:5001/notes/${id}/share`, {
+            await fetch(`${API_URL}/notes/${id}/share`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
                 body: JSON.stringify({ email: emailToUpdate, role: newRole })
@@ -201,7 +204,7 @@ const NotePage = () => {
     const removeCollaborator = async (emailToRemove) => {
         try {
             const token = localStorage.getItem('token');
-            await fetch(`http://localhost:5001/notes/${id}/share/${emailToRemove}`, {
+            await fetch(`${API_URL}/notes/${id}/share/${emailToRemove}`, {
                 method: 'DELETE',
                 headers: { 'Authorization': `Bearer ${token}` }
             });
@@ -217,7 +220,7 @@ const NotePage = () => {
     const handleRequestAccess = async () => {
         try {
             const token = localStorage.getItem('token');
-            const res = await fetch(`http://localhost:5001/notes/${id}/request-access`, {
+            const res = await fetch(`${API_URL}/notes/${id}/request-access`, {
                 method: 'POST',
                 headers: { 'Authorization': `Bearer ${token}` }
             });
