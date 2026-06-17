@@ -47,7 +47,6 @@ const NotePage = () => {
         });
         socketRef.current.on('online-users', (users) => {
             setOnlineUsers(users);
-            setViewers(users.length);
         });
 
         socketRef.current.on('note-updated', (data) => {
